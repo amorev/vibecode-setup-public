@@ -18,6 +18,11 @@ const router = createRouter({
       component: () => import('@/views/PublicView.vue'),
     },
     {
+      path: '/deploy-test',
+      name: 'deploy-test',
+      component: () => import('@/views/DeployTestView.vue'),
+    },
+    {
       path: '/reminders',
       name: 'reminders',
       component: () => import('@/views/RemindersView.vue'),
