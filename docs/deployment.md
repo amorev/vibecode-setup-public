@@ -12,19 +12,40 @@ Internet ── HTTP ──> :3000 ──> systemd/vibecode-setup ──> SQLite
 
 ## Сборка и деплой
 
-См. подробное пошаговое руководство в [`GETTING_STARTED.md` → «Деплой на сервер (нативно, через systemd)`](./GETTING_STARTED.md#деплой-на-сервер-нативно-через-systemd).
+См. подробное пошаговое руководство в [`GETTING_STARTED.md` → «Деплой на сервер (нативно, через systemd)`](./GETTING_STARTED.md#деплой-на-сервер-нативно-через-systemd) и [`deploy/SERVER-DEPLOY.md`](../deploy/SERVER-DEPLOY.md).
 
-Краткая сводка:
+Краткая сводка (для **update** поверх существующего деплоя):
 
 ```bash
-# На сервере
-cd /opt/app
-sudo -u app git pull
-sudo -u app npm ci
-sudo -u app npm run build
+# 1. Локально: упаковать проект в tar.gz (исключая node_modules, .env, dist, data)
+mkdir -p .tmp
+tar --exclude='./node_modules' --exclude='./.git' --exclude='./dist' \
+    --exclude='./logs' --exclude='./data' --exclude='./.env' \
+    --exclude='./playwright-report' --exclude='./test-results' \
+    --exclude='./.idea' --exclude='./.tmp' \
+    -czf .tmp/release.tar.gz .
+sha256sum .tmp/release.tar.gz   # зафиксировать для проверки
+
+# 2. На сервере (через SFTP — mcp__sftp-connect__sftp_upload):
+#    .tmp/release.tar.gz → /home/<USER>/app/release.tar.gz
+
+# 3. На сервере (через SSH — mcp__ssh-connect__ssh_connect_exec от <USER>):
+cd ~/app
+sha256sum release.tar.gz        # сверить с локальным
+tar -xzf release.tar.gz
+rm -f release.tar.gz
+rm -rf apps/frontend/dist apps/backend/dist
+source ~/.nvm/nvm.sh && nvm use 22
+npm ci --no-audit --no-fund
+npm run build
+
+# 4. Рестарт (через sudo)
 sudo systemctl restart vibecode-setup
+sleep 2
 sudo journalctl -u vibecode-setup -n 100 --no-pager
 ```
+
+> **Принцип:** SFTP для передачи данных, SSH для действий на сервере. Подробнее — в `AGENTS.md` и в инструкциях субагентов `.pi/agents/`. Никогда не используй `scp` / `rsync` / `tar | ssh` / `curl file://` для заливки в этом проекте.
 
 ## systemd unit
 

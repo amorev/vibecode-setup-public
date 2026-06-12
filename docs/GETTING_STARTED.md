@@ -240,7 +240,7 @@ project/
 ├── deploy/
 │   └── prepare/          # Скрипты подготовки сервера (запускать вручную)
 ├── docs/                 # Документация
-├── scripts/              # log-runner, kill-service, ssh.sh
+├── scripts/              # log-runner, kill-service, ssh.sh, sftp.sh
 ├── package.json          # Root workspace
 └── agents.md             # Agent guide
 ```

@@ -27,6 +27,9 @@
 | `docs-maintainer` | `@docs-maintainer обнови docs` | Обновляет `docs/` после изменений в коде. Сравнивает текущий код с документацией и вносит точечные правки. Вызывать после каждой задачи. |
 | `test-runner` | `@test-runner запусти тесты` | Запускает e2e тесты и возвращает отчёт (pass/fail с ошибками). Не чинит код — только отчёт. |
 | `test-fixer` | `@test-fixer почини тесты` | Запускает тесты, анализирует ошибки, чинит root cause в коде, перезапускает, подтверждает passing. |
+| `server-operator` | `@server-operator выполни на сервере` | **Shell на удалённом сервере** через `ssh-connect` MCP. Используется для: диагностика, systemd, apt, ufw, чтение логов, `npm ci`/`npm run build` на сервере, файловые операции (`rm`/`mv`/`chown`) когда файлы уже на диске. **НЕ** загружает файлы — для этого есть `sftp-operator`. |
+| `sftp-operator` | `@sftp-operator залей файл` | **Передача файлов** на/с удалённого сервера через `sftp-connect` MCP: upload tar.gz, download логов, листинг директорий. **НЕ** выполняет shell — `sftp_connect_exec` в этом проекте запрещён. |
+| `server-deployer` | `@server-deployer разверни проект` | **Оркестратор деплоя** — координирует `sftp-operator` (заливка tar.gz) + `server-operator` (shell: `npm ci`, `systemctl restart`, healthcheck). Полный деплой или обновление по `deploy/SERVER-DEPLOY.md`. |
 
 ### Как вызывать
 
@@ -49,6 +52,14 @@
 # Починить падающие тесты:
 @test-fixer почини тесты
 
+# Залить файл на сервер:
+@sftp-operator загрузи D:/path/local.txt в /home/vibecoder/app/local.txt
+
+# Выполнить команду на сервере:
+@server-operator перезапусти systemd-сервис vibecode-setup.service
+
+# Полный деплой:
+@server-deployer разверни приложение на сервер vibecoder@2.26.67.89:2091, путь /home/vibecoder/app
 ```
 
 ## Правила

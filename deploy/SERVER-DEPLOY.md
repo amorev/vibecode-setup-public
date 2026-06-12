@@ -12,9 +12,13 @@
 - Пользователь с `sudo NOPASSWD` (или пароль в `.env` MCP)
 - Минимум 512 MB RAM, 1 GB диска
 - Открытый порт 3000/tcp (или настройка firewall позже)
-- Локально: tar (всегда), `ssh` (для стрима файлов), копия проекта
+- Локально: `tar` (всегда), копия проекта
 
-Работа идёт через субагента `server-operator` (см. `agents.md`). **Не вызывай** `mcp__ssh-connect__*` напрямую.
+Работа идёт через субагентов:
+- **`server-operator`** — shell-команды на сервере (`ssh_connect_exec` / `ssh_connect_sudo-exec`)
+- **`sftp-operator`** — загрузка/скачивание файлов (`sftp_connect_sftp_upload` / `sftp_download` / `sftp_list`)
+
+**Не вызывай** `mcp__ssh-connect__*` и `mcp__sftp-connect__*` напрямую — делегируй субагентам. Подробнее о разделении SFTP/SSH — в `AGENTS.md` и в субагентских инструкциях `.pi/agents/`.
 
 ---
 
@@ -31,7 +35,7 @@ subagent({
     "echo \"=== sudo ===\" && sudo -n true 2>&1 && echo \"sudo NOPASSWD: ok\" || echo \"sudo: needs password\"; " +
     "echo \"=== user ===\" && whoami && id; " +
     "echo \"=== node ===\" && command -v node || echo \"node: NOT installed\"; " +
-    "echo \"=== tar/rsync ===\" && which tar rsync; " +
+    "echo \"=== tar ===\" && which tar; " +
     "echo \"=== /opt and HOME ===\" && ls -la /opt 2>/dev/null | head -3 && ls -la $HOME | head -3; " +
     "echo \"=== external IP ===\" && curl -s -4 --max-time 5 ipv4.icanhazip.com.\n\n" +
     "Верни exit code и stdout целиком. Не интерпретируй."
@@ -44,7 +48,6 @@ subagent({
 - `systemd: ok`
 - `sudo NOPASSWD: ok` — если нет, **стоп**, нужно сначала настроить `sudo NOPASSWD` (руками, не из агента)
 - `node` — может отсутствовать, это ОК
-- `rsync` — желателен, но не критичен (есть tar fallback)
 
 Если чего-то критичного нет — **не продолжай**, доложи главному агенту.
 
@@ -89,14 +92,16 @@ subagent({
 
 ---
 
-## 3. Залить файлы проекта
+## 3. Залить файлы проекта (SFTP)
 
-### Вариант A: tar-стрим через SSH (рекомендуется, без зависимостей)
+**Принцип:** SFTP для данных (move files), SSH для действий (unpack, install, restart). В этом проекте для заливки файлов **только** SFTP (`mcp__sftp-connect__sftp_upload`). `scp` / `rsync` / `tar | ssh` / `curl file://` **не используются** — это нарушает разделение протоколов и не даст корректного аудита.
 
-**Локально** (не через субагента, а через свой `bash`):
+### Шаг 3.1: Упаковать проект локально
+
+Локально (своим `bash`, **не** через `server-operator` — у него нет `bash`):
 
 ```bash
-# Исключаем: node_modules, .git, dist, logs, data, .env (локальный для SSH-доступа), кэши тестов
+mkdir -p .tmp
 cd /path/to/vibecode-setup-public
 tar --exclude='./node_modules' \
     --exclude='./.git' \
@@ -107,27 +112,85 @@ tar --exclude='./node_modules' \
     --exclude='./playwright-report' \
     --exclude='./test-results' \
     --exclude='./.idea' \
-    -czf - . | \
-  ssh -p <SSH_PORT> <USER>@<SERVER_IP> \
-    "cd ~/app && tar -xzf - && find . -type f | wc -l && ls -la | head -10"
+    --exclude='./.tmp' \
+    -czf .tmp/release.tar.gz .
+
+# sanity-check
+tar -tzf .tmp/release.tar.gz | wc -l        # 200-300 файлов
+tar -tzf .tmp/release.tar.gz | head -20     # top-level: agents.md apps deploy docs ...
+ls -la .tmp/release.tar.gz                   # ~1-3 MB
+# Зафиксируй SHA локально — понадобится для проверки
+sha256sum .tmp/release.tar.gz
 ```
 
-**Ожидаемый вывод:** число файлов (~200-300), `agents.md`, `apps/`, `package.json` и т.п. в `ls`.
+**Исключения — обязательны:** `node_modules` ~270 МБ, `.env` (локальный с SSH-кредами), `dist` (пересоберётся на сервере), `data` (продовая БД, нельзя затирать), `.tmp` (иначе tar в tar).
 
-### Вариант B: rsync (если есть локально)
+### Шаг 3.2: Залить tar.gz через SFTP
+
+Делегируй **`sftp-operator`** (или вызови `mcp__sftp-connect__sftp_upload` сам, если ты оркестратор и SFTP-инструмент доступен):
+
+```typescript
+subagent({
+  agent: "sftp-operator",
+  task: "Загрузи локальный файл <repo>/.tmp/release.tar.gz на сервер в /home/vibecoder/app/release.tar.gz через mcp__sftp-connect__sftp_upload. Верни результат MCP дословно."
+})
+// Или напрямую:
+// mcp__sftp-connect__sftp_upload
+//   localPath:  <repo-root>/.tmp/release.tar.gz   (абсолютный путь)
+//   remotePath: /home/vibecoder/app/release.tar.gz
+// Ожидаемый ответ: "File uploaded to /home/vibecoder/app/release.tar.gz"
+```
+
+### Шаг 3.3: Распаковать на сервере (SSH)
+
+Делегируй **`server-operator`**:
+
+```typescript
+subagent({
+  agent: "server-operator",
+  task: "Через ssh_connect_exec от имени vibecoder распакуй release.tar.gz в ~/app/, проверь SHA и посчитай файлы:\n\n" +
+    "cd ~/app && \\\n" +
+    "  echo '--- SHA на сервере ---' && sha256sum release.tar.gz && \\\n" +
+    "  echo '--- распаковка ---' && tar -xzf release.tar.gz && \\\n" +
+    "  echo '--- file count (без data и node_modules) ---' && \\\n" +
+    "  find . -type f -not -path './data/*' -not -path './node_modules/*' | wc -l && \\\n" +
+    "  echo '--- top-level ---' && ls -la | head -15 && \\\n" +
+    "  rm -f release.tar.gz && \\\n" +
+    "  echo 'OK'\n\n" +
+    "Верни результат. Локальный SHA (для сравнения): <вставить sha256sum из шага 3.1>."
+})
+```
+
+**Проверка успешности:** SHA на сервере == SHA локально. Файлов 200–300. В `ls` видны `agents.md`, `apps/`, `package.json`. **Если SHA не совпадает** — стоп, файл повреждён при передаче (редко, но бывает), перезалей.
+
+### Шаг 3.4: Удалить локальный архив
+
+Локально (своим `bash`):
 
 ```bash
-rsync -avz --delete \
-  --exclude='node_modules' --exclude='.git' --exclude='dist' --exclude='logs' \
-  --exclude='data' --exclude='.env' --exclude='playwright-report' \
-  --exclude='test-results' --exclude='.idea' \
-  -e "ssh -p <SSH_PORT>" \
-  ./ <USER>@<SERVER_IP>:~/app/
+rm -f .tmp/release.tar.gz
 ```
 
-### Вариант C: через субагента (медленнее, но полностью делегировано)
+### Почему не `scp` / `rsync` / `tar | ssh`
 
-См. ниже в секции «Альтернатива: целиком через субагента» — медленно, потому что base64 кодирование.
+| Метод | Проблема |
+|-------|----------|
+| `scp` | Другой протокол (поверх SSH), не идёт через `sftp-connect` MCP — нарушает разделение SFTP/SSH и теряет аудит в логах `sftp-connect` |
+| `rsync` | То же + дельта-синхронизация усложняет отладку; первый запуск всё равно копирует всё |
+| `tar -czf - \| ssh tar -xzf -` | Стрим SSH-ом; загрузка и распаковка неразделимы — нельзя ни SHA проверить перед распаковкой, ни откатить неполный архив; маскирует ошибки передачи |
+| `curl file://` | Не работает для удалённого сервера; для upload обычно `curl -T`, но это снова обход протокола |
+
+**SFTP + tar.gz + ssh_connect_exec** — единственный путь, который даёт:
+- Атомарный артефакт (один файл известного размера и SHA)
+- Разделение «доставка данных» / «выполнение действий» (логи SFTP отдельно от логов SSH)
+- Возможность при необходимости скачать архив обратно (`sftp_download`) для офлайн-диагностики
+- Проверку целостности до того, как файлы распакованы и затерли что-то на сервере
+
+### Если SFTP недоступен в runtime
+
+Если `mcp__sftp-connect__*` не прокидывается в текущий контекст субагента:
+1. Попроси главного агента выполнить `mcp__sftp-connect__sftp_upload` **самого**
+2. Не пытайся обойти через `scp` / `rsync` / `cat | ssh tar` — это нарушает проектное разделение и при следующем запуске сломает воспроизводимость
 
 ---
 
@@ -304,10 +367,17 @@ subagent({
 
 ## Обновление приложения (повторный deploy)
 
+**Сначала — залить файлы через SFTP** (шаг 3.1–3.2), **затем** — выполнить SSH-команды ниже. Без нового архива `rm -rf dist && npm ci && npm run build` просто пересоберёт старый код.
+
 ```typescript
+// Шаг 1: залить новый tar.gz (см. шаг 3.1–3.2 выше)
+//   - sftp-operator: mcp__sftp-connect__sftp_upload .tmp/release.tar.gz → /home/vibecoder/app/release.tar.gz
+//   - server-operator: tar -xzf release.tar.gz в ~/app/ + sha256sum + rm -f release.tar.gz
+
+// Шаг 2: перезапустить с новым кодом
 subagent({
   agent: "server-operator",
-  task: "Через ssh_connect_sudo-exec обнови приложение до последней версии:\n\n" +
+  task: "Через ssh_connect_sudo-exec обнови приложение до залитой версии:\n\n" +
     "systemctl stop vibecode-setup.service && \\\n" +
     "sudo -u vibecoder bash -lc 'cd ~/app && source $HOME/.nvm/nvm.sh && nvm use 22 >/dev/null 2>&1 && \\\n" +
     "  rm -rf apps/frontend/dist apps/backend/dist && \\\n" +
@@ -318,8 +388,7 @@ subagent({
     "systemctl status vibecode-setup.service --no-pager -l | head -10 && \\\n" +
     "echo '--- healthcheck ---' && curl -s -m 5 http://127.0.0.1:3000/api/users/count && \\\n" +
     "echo '--- новые ассеты ---' && curl -s -m 5 http://127.0.0.1:3000/ | grep -oE 'assets/index-[^\"]+\\.js' | head -1 && \\\n" +
-    "ssh -o BatchMode=yes vibecoder@127.0.0.1 'ls /home/vibecoder/app/apps/frontend/dist/assets/ 2>/dev/null' 2>/dev/null || \\\n" +
-    "  ls /home/vibecoder/app/apps/frontend/dist/assets/ 2>/dev/null | head -15\n\n" +
+    "echo '--- dist assets ---' && ls /home/vibecoder/app/apps/frontend/dist/assets/ 2>/dev/null | head -15\n\n" +
     "Верни результат."
 })
 ```
@@ -328,7 +397,12 @@ subagent({
 
 **Проверка успешного обновления:** после билда в выводе `npm run build` должны быть **новые ассеты** (`*.js` с новыми хешами). Если добавлялся новый view/component — ищите его в списке (например, `NewView-XXXX.js`).
 
-Перед запуском скрипта **локально** (на машине агента) перезалить файлы через `tar | ssh` (шаг 3).
+**Полная цепочка update-deploy:**
+
+1. **Локально (своим `bash`):** создать новый `.tmp/release.tar.gz` (см. шаг 3.1), зафиксировать `sha256sum`
+2. **sftp-operator:** `mcp__sftp-connect__sftp_upload` — залить tar.gz на сервер
+3. **server-operator:** `tar -xzf` + `sha256sum` (сверить) + `rm -f release.tar.gz`
+4. **server-operator:** `systemctl stop` + `rm -rf dist` + `npm ci` + `npm run build` + `systemctl start` + healthcheck (блок выше)
 
 ---
 
