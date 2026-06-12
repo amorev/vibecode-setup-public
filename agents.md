@@ -299,6 +299,7 @@ Project-local subagents (stored in `.pi/agents/`). Call with `@<name> <message>`
 | `test-runner` | `@test-runner запусти тесты` | **Run e2e tests and return a compact report** — all tests, a specific file, or filtered by pattern. Returns pass/fail summary with error details. Does NOT fix code — only reports. |
 | `test-fixer` | `@test-fixer почини тесты` | **Fix broken e2e tests** — runs the test, analyzes the error, fixes the root cause in code, re-runs, and returns the final report. Use after `test-runner` identifies failures. |
 | `server-operator` | `@server-operator выполни на сервере` | **All server / deploy operations** — runs shell commands on the remote host via the project-local `ssh-connect` MCP (`ssh_connect_exec`, `ssh_connect_sudo-exec`). Only does what is asked, never interprets results. Use this for deploys, server config, package installs, service restarts, log inspection, etc. |
+| `server-deployer` | `@server-deployer разверни проект` | **Full deploy orchestrator** — coordinates local `tar\|ssh`/`rsync` upload with server-side operations (Node install, npm ci, build, systemd unit, UFW, healthcheck) for first-time deploy or update. Reads `agents/SERVER-DEPLOY.md` and returns structured per-step report. Use when user says «задеплой» / «обнови на сервере» / «разверни проект». |
 
 ### browser-checker workflow
 
@@ -346,6 +347,21 @@ Subagent: runs test → reads error output → fixes code → re-runs → return
 ```
 
 The fixer runs tests, analyzes failures, fixes the root cause (in test files or application code), re-runs, and confirms everything passes. If it needs more context about business logic, it reads `agents.md` and asks clarifying questions.
+
+### server-deployer workflow
+
+The subagent is the **deploy orchestrator**: it knows the full flow (Node install → upload → npm ci → build → systemd → UFW → healthcheck) and runs it end-to-end. You pass mode (`deploy` / `update` / `status`) and connection params, it returns a per-step report.
+
+```text
+User: задеплой приложение на сервер 2.26.67.89
+Agent: subagent({ agent: "server-deployer", task: "Режим: deploy. Параметры: server.user=vibecoder, server.host=2.26.67.89, server.port=2091, app.path=/home/vibecoder/app, app.port=3000, service.name=vibecode-setup.service. Выполни полный цикл по agents/SERVER-DEPLOY.md (шаги 0–9)." })
+Subagent: uploads files → installs Node → npm ci → build → systemd unit → UFW → healthcheck → returns structured report
+Agent: <interprets report, reports success or escalates to user>
+```
+
+For updates, just pass `mode: "update"` and the agent skips already-done steps (Node, unit, UFW) and only re-runs upload + npm ci + build + restart.
+
+Full step-by-step instructions and SSH-call templates live in `agents/SERVER-DEPLOY.md` — `server-deployer` reads it automatically.
 
 ### server-operator workflow
 
