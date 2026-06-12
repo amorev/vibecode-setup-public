@@ -20,7 +20,7 @@
 | E2E-тесты | Playwright + Chrome CDP | ^1.48.0 |
 | Авторизация | JWT (passport-jwt) | — |
 | Сборка | Vite (frontend) + Nest CLI (backend) | — |
-| Контейнеризация | Docker multi-stage | node:22-alpine |
+| Процесс-менеджер | systemd (production) | — |
 
 ## Монорепо (npm workspaces)
 
@@ -38,8 +38,9 @@ project/
 │       ├── src/views/    # PublicView, LoginView, Admin (ManageUsersView, TelegramBotView)
 │       └── src/router/   # Hash router
 ├── e2e/                  # Playwright e2e tests (CDP)
-├── docker/               # Dockerfile + compose files
-├── scripts/              # Helpers: log-runner, kill-service
+├── deploy/
+│   └── prepare/          # Скрипты подготовки сервера (запускать вручную)
+├── scripts/              # Helpers: log-runner, kill-service, ssh.sh
 └── package.json          # Root workspace
 ```
 
@@ -53,7 +54,7 @@ project/
 
 ## Архитектурные решения
 
-1. **Единый контейнер**: Frontend собирается в `dist/`, Nest.js сервит статику + API.
+1. **Единое приложение**: Frontend собирается в `dist/`, Nest.js сервит статику + API. Деплой — нативный (systemd), без контейнеризации и reverse proxy.
 2. **API prefix**: `setGlobalPrefix('api')` — все API-маршруты под `/api/*`.
 3. **Hash router**: `createWebHashHistory()` — SPA работает без серверного fallback.
 4. **Database abstraction**: `DB_TYPE=sqlite` или `postgres` через `.env`. TypeORM `synchronize: true`.
@@ -71,7 +72,6 @@ project/
 | 3000 | Backend (Nest.js) — production и dev |
 | 5173 | Frontend dev server (Vite) |
 | 9222 | Chrome CDP (для e2e тестов) |
-| 8080 | Playwright UI (в Docker e2e) |
 
 ## Ключевые команды
 

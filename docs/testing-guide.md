@@ -77,20 +77,6 @@ google-chrome --remote-debugging-port=9222 # Linux
 E2E_BROWSER_MODE=cdp npm run test:e2e
 ```
 
-## Docker E2E
-
-```bash
-# 1. Запустите приложение
-cd docker && docker compose up -d
-
-# 2. Запустите Chrome на хосте с CDP
-chrome.exe --remote-debugging-port=9222
-
-# 3. Запустите тесты в Docker
-cd docker && docker compose -f docker-compose.e2e.yml up e2e
-# Playwright UI: http://localhost:8080
-```
-
 ## Чек-лист перед коммитом
 
 - [ ] Все тесты проходят: `npm run test:e2e`

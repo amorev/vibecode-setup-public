@@ -4,7 +4,9 @@
 
 Шаблон Nest.js + Vue 3 приложения с авторизацией, админ-панелью управления пользователями и публичной страницей. База данных: SQLite (dev) / PostgreSQL (prod).
 
-## Быстрый старт
+**Деплой — только нативный**: приложение работает как `systemd`-сервис на Linux-сервере (Ubuntu 22+), доступ через `http://<IP>:3000` напрямую. Без nginx, без SSL — это тестовая установка.
+
+## Быстрый старт (dev-режим, локально)
 
 ### 1. Клонировать и установить
 
@@ -22,7 +24,7 @@ cp apps/backend/.env.example apps/backend/.env
 # Отредактируйте: JWT_SECRET, DB_* (если postgres)
 ```
 
-### 3. Запуск в dev-режиме (локально)
+### 3. Запуск в dev-режиме
 
 ```bash
 # Terminal 1 — Backend с логированием
@@ -51,95 +53,166 @@ npm run create-admin
 
 ---
 
-## Запуск с Docker
+## Деплой на сервер (нативно, через systemd)
 
-### SQLite (dev)
+> **Замечание:** вспомогательные скрипты в `deploy/prepare/` (создание пользователя, настройка SSH, UFW, fail2ban) запускаются **вручную владельцем сервера** — не агентами и не из деплоя. Они готовят «голый» сервер к приёму приложения.
 
-```bash
-cd docker
-docker compose up -d
-```
-
-Приложение доступно на `http://localhost:3000`.
-
-### PostgreSQL (prod)
-
-```bash
-cd docker
-
-# Скопируйте env и настройте
-cp env .env.production
-# Отредактируйте: DB_TYPE, DB_HOST, DB_PASSWORD, JWT_SECRET, CORS_ORIGIN
-
-docker compose -f docker-compose.yml up -d
-```
-
-> **Важно**: для production обязательно используйте PostgreSQL. SQLite не поддерживается в production.
-
----
-
-## Деплой с nginx-proxy (без Docker для приложения)
+Это **тестовая** установка — приложение доступно напрямую через `http://<IP>:3000`, без reverse proxy и SSL.
 
 ### Требования
 
-- Сервер с Node.js 22+ и npm
-- nginx-proxy + letsencrypt-nginx-proxy-companion (Docker)
-- Доменное имя с DNS, указывающим на IP сервера
+- Сервер с Ubuntu 22.04+ (или другим современным Linux с systemd)
+- Node.js 22+ и npm (`node -v`, `npm -v`)
+- Доступ `sudo` для текущего пользователя
 
-### Шаги
+### Шаг 1. Подготовить сервер
 
-#### 1. Настройте nginx-proxy (если ещё не настроен)
+Подготовка сервера выполняется **вручную** (не из приложения, не из агента). Минимальный набор:
 
 ```bash
-docker run -d \
-  -p 80:80 -p 443:443 \
-  -v /etc/nginx/certs:/etc/nginx/certs:rw \
-  -v /etc/nginx/vhost.d \
-  -v /usr/share/nginx/html \
-  -v /var/run/docker.sock:/tmp/docker.sock:ro \
-  -v /path/to/docker-compose.nginx-proxy.yml:/etc/nginx/docker-compose.yml \
-  --name nginx-proxy \
-  nginxproxy/nginx-proxy:latest
+# Обновить систему
+sudo apt update && sudo apt upgrade -y
 
-docker run -d \
-  --name nginx-proxy-letsencrypt \
-  -v /var/run/docker.sock:/var/run/docker.sock:ro \
-  -v /etc/nginx/certs:/etc/nginx/certs:rw \
-  -v /etc/nginx/vhost.d \
-  -v /usr/share/nginx/html \
-  --label=com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy \
-  nginxproxy/acme-companion:latest
+# Установить Node.js 22+ (через nvm — рекомендуется)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+source ~/.bashrc
+nvm install 22
+nvm use 22
+nvm alias default 22
+
+# Создать пользователя для приложения (опционально)
+sudo useradd -m -s /bin/bash app
+sudo mkdir -p /opt/app
+sudo chown app:app /opt/app
 ```
 
-#### 2. Разверните приложение на сервере
+Дополнительно рекомендуется настроить (тоже руками):
+- firewall (UFW) — открыть 22 и 3000
+- fail2ban для SSH
+- SSH-ключи, отключение парольного входа для root
+- резервное копирование
+
+> Скрипты-автоматизаторы для этих шагов лежат в `deploy/prepare/`. Запускайте их вручную и под своим контролем.
+
+### Шаг 2. Развернуть приложение
 
 ```bash
 # Клонируйте на сервер
-git clone <repo-url> /opt/app
+sudo -u app git clone <repo-url> /opt/app
 cd /opt/app
-npm install
+sudo -u app npm ci
 
-# Соберите фронтенд и бэкенд
-npm run build
-
-# Запустите бэкенд (рекомендуется через pm2)
-npm run start:prod
+# Соберите production-артефакты
+sudo -u app npm run build
 ```
 
-#### 3. Запустите через docker-compose с nginx-proxy
+В результате:
+- `apps/frontend/dist/` — статический frontend
+- `apps/backend/dist/` — скомпилированный Nest.js
+
+### Шаг 3. Настроить `.env` для теста
 
 ```bash
-cd docker
-
-# Настройте переменные
-cp .env.example .env
-# Отредактируйте: DOMAIN, EMAIL, APP_IMAGE (или build locally), PG_ROOT_PASSWORD
-
-docker compose -f docker-compose.nginx-proxy.yml pull app
-docker compose -f docker-compose.nginx-proxy.yml up -d
+sudo -u app cp apps/backend/.env.example apps/backend/.env
+sudo -u app nano apps/backend/.env
 ```
 
-Приложение будет доступно по HTTPS на домене из `DOMAIN`.
+Заполнить:
+- `DB_TYPE=sqlite` (для теста — проще, без отдельного PostgreSQL)
+- `JWT_SECRET=<длинная-случайная-строка>`
+- `ADMIN_LOGIN=<придумать>`
+- `ADMIN_PASSWORD=<придумать>`
+- `CORS_ORIGIN=http://<IP>:3000,http://<DOMAIN>:3000` (через запятую, если будут варианты)
+- `PORT=3000`
+
+> Для теста SQLite достаточно. PostgreSQL — только если планируется реальная нагрузка.
+
+### Шаг 4. Установить и запустить systemd-сервис
+
+Создайте unit-файл:
+
+```bash
+sudo tee /etc/systemd/system/vibecode-setup.service > /dev/null <<'EOF'
+[Unit]
+Description=VibeSetup (Nest.js + Vue 3 SPA)
+After=network.target
+
+[Service]
+Type=simple
+User=app
+WorkingDirectory=/opt/app
+EnvironmentFile=/opt/app/apps/backend/.env
+ExecStart=/usr/bin/node /opt/app/apps/backend/dist/main.js
+Restart=on-failure
+RestartSec=5
+
+# Логи
+StandardOutput=append:/var/log/vibecode-setup/app.log
+StandardError=append:/var/log/vibecode-setup/error.log
+
+# Ограничения
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Создать директорию для логов
+sudo mkdir -p /var/log/vibecode-setup
+sudo chown app:app /var/log/vibecode-setup
+
+# Включить и запустить
+sudo systemctl daemon-reload
+sudo systemctl enable --now vibecode-setup
+sudo systemctl status vibecode-setup
+```
+
+Проверить, что приложение слушает порт:
+```bash
+curl -s http://127.0.0.1:3000/api/users/count
+```
+
+### Шаг 5. Открыть порт в firewall
+
+```bash
+sudo ufw allow 3000/tcp
+```
+
+### Готово
+
+Приложение доступно по **`http://<IP>:3000`** (где `<IP>` — IP сервера).
+
+### Обновление приложения
+
+```bash
+cd /opt/app
+sudo -u app git pull
+sudo -u app npm ci
+sudo -u app npm run build
+sudo systemctl restart vibecode-setup
+sudo journalctl -u vibecode-setup -n 100 --no-pager
+```
+
+### Откат
+
+```bash
+cd /opt/app
+sudo -u app git checkout <previous-tag-or-commit>
+sudo -u app npm ci
+sudo -u app npm run build
+sudo systemctl restart vibecode-setup
+```
+
+### Логи
+
+```bash
+# journald (рекомендуется)
+sudo journalctl -u vibecode-setup -f
+
+# Файловые логи (если настроены в unit)
+sudo tail -f /var/log/vibecode-setup/app.log
+```
 
 ---
 
@@ -164,9 +237,10 @@ project/
 │       │   └── composables/    # useAuth
 │       └── vite.config.ts
 ├── e2e/                  # Playwright e2e tests (CDP)
-├── docker/               # Docker compose files
+├── deploy/
+│   └── prepare/          # Скрипты подготовки сервера (запускать вручную)
 ├── docs/                 # Документация
-├── scripts/              # log-runner, kill-service
+├── scripts/              # log-runner, kill-service, ssh.sh
 ├── package.json          # Root workspace
 └── agents.md             # Agent guide
 ```
@@ -182,7 +256,7 @@ project/
 | `npm run kill:backend` | Остановить backend |
 | `npm run kill:frontend` | Остановить frontend |
 | `npm run build` | Build frontend + backend |
-| `npm run start:prod` | Production mode |
+| `npm run start:prod` | Production mode (локально) |
 | `npm run test:e2e` | E2E тесты |
 | `npm run db:reset` | Сброс БД |
 | `npm run create-admin` | CLI: создать админа |

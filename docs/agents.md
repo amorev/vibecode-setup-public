@@ -7,7 +7,7 @@
 | Файл | Область | Когда использовать |
 |------|---------|-------------------|
 | `project-overview.md` | Общая архитектура | Новому агенту для понимания стека |
-| `GETTING_STARTED.md` | Запуск с нуля | Dev, Docker, nginx-proxy |
+| `GETTING_STARTED.md` | Запуск с нуля | Dev, нативный деплой (systemd) |
 | `areas/backend-api-structure.md` | Backend API (auth, users) | CRUD пользователей, JWT auth |
 | `areas/auth-structure.md` | Аутентификация | JWT, login/logout, guard |
 | `areas/database-structure.md` | База данных | TypeORM сущности, миграции |
@@ -15,7 +15,7 @@
 | `areas/e2e-testing-structure.md` | E2E-тесты | Playwright, CDP, новые тесты |
 | `areas/admin-panel.md` | Админ-панель | AdminLayout, роуты, навигация |
 | `testing-guide.md` | Руководство по тестированию | Запуск тестов, написание |
-| `deployment.md` | Docker, порты, env | Деплой |
+| `deployment.md` | Нативный деплой (systemd), порты, env | Деплой |
 
 ## Субагенты
 
