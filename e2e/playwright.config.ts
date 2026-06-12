@@ -30,6 +30,15 @@ Object.entries(envVars).forEach(([k, v]) => {
 
 const BROWSER_MODE = process.env.E2E_BROWSER_MODE || 'cdp';
 
+// CDP mode: tests use connectedPage fixture from fixtures.ts, which connects
+// to the externally launched Chrome via CDP. headless: true here is harmless
+// because no test requests Playwright's default page fixture.
+const baseUse = {
+  trace: 'retain-on-failure',
+  screenshot: 'only-on-failure',
+  video: 'retain-on-failure',
+} as const;
+
 export default defineConfig({
   testDir: './tests',
   fullyParallel: false,
@@ -38,12 +47,8 @@ export default defineConfig({
   timeout: 30_000,
   workers: 1,
   reporter: process.env.CI ? 'list' : [['list'], ['html']],
-  use: {
-    browserName: 'chromium',
-    headless: true,
-    trace: 'retain-on-failure',
-    screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
-  },
+  use: BROWSER_MODE === 'cdp'
+    ? { ...baseUse }
+    : { ...baseUse, browserName: 'chromium', headless: BROWSER_MODE === 'headless' },
   globalSetup: BROWSER_MODE === 'cdp' ? undefined : './global-setup.ts',
 });

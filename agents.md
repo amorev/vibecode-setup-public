@@ -2,7 +2,7 @@
 
 ## Architecture
 
-**Monorepo** (npm workspaces) with Nest.js backend, Vue.js frontend, Playwright e2e tests. Single Docker container in production — frontend built into Nest.js static.
+**Monorepo** (npm workspaces) with Nest.js backend, Vue.js frontend, Playwright e2e tests. 
 
 ```
 vibe-setup-ui/
@@ -211,30 +211,6 @@ When debugging a problem, read the logs instead:
 | POST | `/api/reminders` | Create reminder (JWT required) |
 | PATCH | `/api/reminders/:id` | Update reminder (JWT required) |
 | DELETE | `/api/reminders/:id` | Delete reminder (JWT required) |
-
-## Docker
-
-```bash
-# Production (single container)
-cd docker && docker compose up -d
-
-# With PostgreSQL
-DB_TYPE=postgres docker compose -f docker-compose.yml up -d
-
-# E2E tests (Playwright UI on :8080)
-cd docker && docker compose -f docker-compose.e2e.yml up e2e
-
-# Production with nginx-proxy (HTTPS, Let's Encrypt)
-cd docker && cp .env.example .env
-# Edit: DOMAIN, EMAIL, APP_IMAGE, PG_ROOT_PASSWORD
-docker compose -f docker-compose.nginx-proxy.yml pull app
-docker compose -f docker-compose.nginx-proxy.yml up -d
-```
-
-Dockerfile is multi-stage:
-1. **frontend-builder**: Install frontend deps, `npm run build:frontend`
-2. **backend-builder**: Install backend deps, `npm run build:backend`
-3. **production**: Only prod deps + built artifacts from stages 1-2
 
 ## Writing E2E Tests
 

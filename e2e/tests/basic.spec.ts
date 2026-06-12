@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures';
+import type { Page } from '@playwright/test';
 import axios from 'axios';
 
 const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:5173';
@@ -10,7 +11,7 @@ const TEST_USER_LOGIN = `test-user-${Date.now()}`;
 test.describe('Basic smoke tests', () => {
 
   // ── Test 1: Login to admin panel ──────────────────────────────────
-  test('should login to admin panel and redirect to users page', async ({ page }) => {
+  test('should login to admin panel and redirect to users page', async ({ connectedPage: page }) => {
     await page.goto(`${BASE_URL}/#/login`);
     await page.getByPlaceholder('admin').waitFor({ state: 'visible', timeout: 10_000 });
 
@@ -28,7 +29,7 @@ test.describe('Basic smoke tests', () => {
   });
 
   // ── Test 2: Create a new user via UI ──────────────────────────────
-  test('should create a new user', async ({ page }) => {
+  test('should create a new user', async ({ connectedPage: page }) => {
     // Login first
     await page.goto(`${BASE_URL}/#/login`);
     await page.getByPlaceholder('admin').fill('admin');
@@ -50,7 +51,7 @@ test.describe('Basic smoke tests', () => {
   });
 
   // ── Test 3: Public page shows user count ─────────────────────────
-  test('should show user count on public page', async ({ page }) => {
+  test('should show user count on public page', async ({ connectedPage: page }) => {
     // Create a test user via API (direct axios call)
     const loginRes = await axios.post(`${API_URL}/auth/login`, {
       login: 'admin',

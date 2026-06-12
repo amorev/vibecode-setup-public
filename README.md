@@ -148,3 +148,27 @@ sudo bash -c 'wget -O /tmp/prepare-server-2.sh https://raw.githubusercontent.com
 - [areas/frontend-structure.md](docs/areas/frontend-structure.md) — Frontend структура
 - [areas/database-structure.md](docs/areas/database-structure.md) — База данных
 - [areas/auth-structure.md](docs/areas/auth-structure.md) — Аутентификация
+
+### Запуск Chrome для отладки
+
+```
+"C:\Program Files\Google\Chrome\Application\chrome.exe" --profile-directory="Profile 2" --remote-debugging-port=9222 --user-data-dir="C:\temp\chrome-debug\1"
+```
+
+После чего в mcp.json
+
+```json
+"chrome-devtools": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "chrome-devtools-mcp@latest",
+        "--browser-url=http://127.0.0.1:9222"
+      ],
+      "directTools": true
+    }
+```
+
+
+https://pi.dev/packages/pi-mcp-adapter
+https://pi.dev/packages/pi-subagents

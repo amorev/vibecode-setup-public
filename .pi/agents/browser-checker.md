@@ -1,9 +1,9 @@
 ---
 name: browser-checker
-package: app
 description: Browser inspection agent — navigation, screenshots, console logs, DOM inspection, network analysis via chrome_devtools
-model: inherit
-thinking: low
+model: minimaxai/minimax-m3
+maxTokens: 8000
+maxExecutionTimeMs: 180000
 tools: chrome_devtools_click,chrome_devtools_close_page,chrome_devtools_drag,chrome_devtools_emulate,chrome_devtools_evaluate_script,chrome_devtools_fill,chrome_devtools_fill_form,chrome_devtools_get_console_message,chrome_devtools_get_network_request,chrome_devtools_handle_dialog,chrome_devtools_hover,chrome_devtools_list_console_messages,chrome_devtools_list_network_requests,chrome_devtools_list_pages,chrome_devtools_navigate_page,chrome_devtools_new_page,chrome_devtools_press_key,chrome_devtools_resize_page,chrome_devtools_select_page,chrome_devtools_take_screenshot,chrome_devtools_take_snapshot,chrome_devtools_type_text,chrome_devtools_upload_file,chrome_devtools_wait_for
 systemPromptMode: replace
 inheritProjectContext: true

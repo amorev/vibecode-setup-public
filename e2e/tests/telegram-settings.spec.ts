@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures';
+import type { Page } from '@playwright/test';
 import axios from 'axios';
 
 const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:5173';
@@ -9,7 +10,7 @@ const TEST_TOKEN = `test-token-${Date.now()}`;
 const TEST_CHAT_ID = `123456789-${Date.now()}`;
 
 /** Login as admin and navigate to the Telegram bot settings page. */
-async function loginAndGoToSettings(page: import('@playwright/test').Page) {
+async function loginAndGoToSettings(page: Page) {
   await page.goto(`${BASE_URL}/#/login`);
   await page.getByPlaceholder('admin').fill('admin');
   await page.getByPlaceholder('••••••••').fill('admin123');
@@ -34,7 +35,7 @@ async function getAdminToken(): Promise<string> {
 test.describe('Telegram bot settings', () => {
 
   // ── Test 1: Navigate to settings page ────────────────────────────
-  test('should navigate to Telegram bot settings page', async ({ page }) => {
+  test('should navigate to Telegram bot settings page', async ({ connectedPage: page }) => {
     await loginAndGoToSettings(page);
     await expect(page.getByRole('heading', { name: 'Telegram бот' })).toBeVisible();
 
@@ -49,7 +50,7 @@ test.describe('Telegram bot settings', () => {
   });
 
   // ── Test 2: Save and persist token + chatId via UI ───────────────
-  test('should save Telegram bot token and chatId via UI', async ({ page }) => {
+  test('should save Telegram bot token and chatId via UI', async ({ connectedPage: page }) => {
     await loginAndGoToSettings(page);
 
     // Fill the form fields
@@ -119,7 +120,7 @@ test.describe('Telegram bot settings', () => {
   });
 
   // ── Test 5: Clear fields by saving empty values ─────────────────
-  test('should clear settings when saving empty strings', async ({ page }) => {
+  test('should clear settings when saving empty strings', async ({ connectedPage: page }) => {
     const token = await getAdminToken();
 
     // First set some values
