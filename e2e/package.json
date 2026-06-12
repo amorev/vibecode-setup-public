@@ -1,0 +1,18 @@
+{
+  "name": "e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test --workers=1",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed --workers=1"
+  },
+  "dependencies": {
+    "axios": "^1.7.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "typescript": "^5.7.0"
+  }
+}

@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+apps/frontend/dist/
+apps/backend/dist/
+
+# Environment
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+e2e/test-results/
+e2e/playwright-report/
+e2e/videos/
+e2e/traces/
+
+# Database
+*.sqlite
+*.sqlite-journal
+
+# Logs
+logs/
+*.log
+
+# Notification test output
+apps/backend/notifications-test/
+
+# Coverage
+coverage/
+test-results/*
+data/ed255519key

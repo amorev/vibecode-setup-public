@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ru" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hermes — инструкция по установке</title>
+  <meta name="description" content="Пошаговая инструкция по подготовке сервера, созданию пользователя hermes и установке Hermes." />
+  <script>
+    (() => {
+      const storageKey = 'hermes-theme';
+      const root = document.documentElement;
+      const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
+
+      function getSavedTheme() {
+        return localStorage.getItem(storageKey);
+      }
+
+      function applyTheme(theme) {
+        const resolved = theme === 'system' ? (systemDark.matches ? 'dark' : 'light') : theme;
+        root.classList.toggle('dark', resolved === 'dark');
+        root.dataset.theme = theme;
+      }
+
+      const initialTheme = getSavedTheme() || 'system';
+      applyTheme(initialTheme);
+
+      systemDark.addEventListener('change', () => {
+        if ((getSavedTheme() || 'system') === 'system') {
+          applyTheme('system');
+        }
+      });
+
+      window.__setTheme = (theme) => {
+        localStorage.setItem(storageKey, theme);
+        applyTheme(theme);
+      };
+
+      window.__copyCommand = async (button) => {
+        const code = button.closest('[data-copy-block]')?.querySelector('[data-copy-text]');
+        if (!code) return;
+
+        const text = code.textContent.trim();
+        const original = button.dataset.originalLabel || button.textContent;
+        button.dataset.originalLabel = original;
+
+        try {
+          await navigator.clipboard.writeText(text);
+          button.textContent = 'Скопировано';
+        } catch (error) {
+          button.textContent = 'Ошибка';
+        }
+
+        window.setTimeout(() => {
+          button.textContent = original;
+        }, 1600);
+      };
+    })();
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            accent: {
+              50: '#f4f2ff',
+              100: '#e9e4ff',
+              500: '#7c3aed',
+              600: '#6d28d9',
+              700: '#5b21b6'
+            }
+          },
+          boxShadow: {
+            soft: '0 20px 60px rgba(15, 23, 42, 0.15)'
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-900 transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100">
+  <div class="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(124,58,237,0.18),transparent_32%)] dark:bg-[radial-gradient(circle_at_top,rgba(167,139,250,0.18),transparent_28%)]"></div>
+
+  <main class="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
+    <section class="overflow-hidden rounded-3xl border border-slate-200/70 bg-white/85 shadow-soft backdrop-blur dark:border-slate-800 dark:bg-slate-900/85">
+      <div class="border-b border-slate-200/70 px-5 py-5 sm:px-8 sm:py-6 dark:border-slate-800">
+        <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div class="max-w-3xl">
+            <span class="inline-flex items-center rounded-full border border-accent-200 bg-accent-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-accent-700 dark:border-accent-500/30 dark:bg-accent-500/10 dark:text-accent-100">
+              YouTube companion page
+            </span>
+            <h1 class="mt-3 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl dark:text-white">
+              Hermes: установка на сервер и базовая подготовка
+            </h1>
+            <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base dark:text-slate-300">
+              Краткая памятка: подготовка сервера, ручное редактирование <code>env.txt</code>, создание пользователя <code>hermes</code> и установка самого агента.
+            </p>
+          </div>
+
+          <div class="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/80">
+            <span class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Тема оформления</span>
+            <div class="grid grid-cols-3 gap-2">
+              <button type="button" onclick="window.__setTheme('light')" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-accent-400 hover:text-accent-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                Светлая
+              </button>
+              <button type="button" onclick="window.__setTheme('dark')" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-accent-400 hover:text-accent-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                Тёмная
+              </button>
+              <button type="button" onclick="window.__setTheme('system')" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-accent-400 hover:text-accent-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                Система
+              </button>
+            </div>
+            <p class="text-xs leading-5 text-slate-500 dark:text-slate-400">
+              По умолчанию страница подхватывает системную тему устройства.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid gap-6 px-5 py-5 sm:px-8 sm:py-8 lg:grid-cols-[1.2fr_0.8fr]">
+        <div class="space-y-6">
+          <section class="rounded-2xl border border-slate-200 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-950/40">
+            <div class="flex items-start gap-4">
+              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-accent-600 text-sm font-bold text-white shadow-lg shadow-accent-600/20">1</div>
+              <div class="min-w-0">
+                <h2 class="text-xl font-semibold text-slate-900 dark:text-white">Подготовьте сервер</h2>
+                <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                  Первый скрипт создаёт swap, просит пароль для будущего пользователя и подготавливает <code>/root/setup-data/env.txt</code>.
+                </p>
+                <div data-copy-block class="group relative mt-4 rounded-2xl bg-slate-900 p-4 text-sm text-slate-100">
+                  <div class="pointer-events-none absolute right-4 top-4 opacity-0 transition duration-150 group-hover:pointer-events-auto group-hover:opacity-100">
+                    <button type="button" onclick="window.__copyCommand(this)" class="rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-accent-400 hover:text-white">
+                      Копировать
+                    </button>
+                  </div>
+                  <div class="overflow-x-auto">
+                    <code data-copy-text class="whitespace-pre-wrap break-all">wget -O /tmp/prepare-hermes.sh https://amorev.ru/misc/hermes/prepare-hermes-1.sh && sudo bash /tmp/prepare-hermes.sh</code>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="rounded-2xl border border-slate-200 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-950/40">
+            <div class="flex items-start gap-4">
+              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-accent-600 text-sm font-bold text-white shadow-lg shadow-accent-600/20">2</div>
+              <div class="min-w-0">
+                <h2 class="text-xl font-semibold text-slate-900 dark:text-white">Отредактируйте env.txt вручную</h2>
+                <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                  После первого шага откройте файл и заполните свои значения: токен Telegram, chat id, endpoint модели и остальные параметры.
+                </p>
+                <div data-copy-block class="group relative mt-4 rounded-2xl bg-slate-900 p-4 text-sm text-slate-100">
+                  <div class="pointer-events-none absolute right-4 top-4 opacity-0 transition duration-150 group-hover:pointer-events-auto group-hover:opacity-100">
+                    <button type="button" onclick="window.__copyCommand(this)" class="rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-accent-400 hover:text-white">
+                      Копировать
+                    </button>
+                  </div>
+                  <div class="overflow-x-auto">
+                    <code data-copy-text class="whitespace-pre-wrap break-all">sudo nano /root/setup-data/env.txt</code>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="rounded-2xl border border-slate-200 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-950/40">
+            <div class="flex items-start gap-4">
+              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-accent-600 text-sm font-bold text-white shadow-lg shadow-accent-600/20">3</div>
+              <div class="min-w-0">
+                <h2 class="text-xl font-semibold text-slate-900 dark:text-white">Создайте пользователя и включите защиту</h2>
+                <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                  Второй скрипт создаёт пользователя <code>hermes</code>, меняет SSH-порт, включает UFW, fail2ban и ставит Telegram-уведомления для SSH-входа.
+                </p>
+                <div data-copy-block class="group relative mt-4 rounded-2xl bg-slate-900 p-4 text-sm text-slate-100">
+                  <div class="pointer-events-none absolute right-4 top-4 opacity-0 transition duration-150 group-hover:pointer-events-auto group-hover:opacity-100">
+                    <button type="button" onclick="window.__copyCommand(this)" class="rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-accent-400 hover:text-white">
+                      Копировать
+                    </button>
+                  </div>
+                  <div class="overflow-x-auto">
+                    <code data-copy-text class="whitespace-pre-wrap break-all">wget -O /tmp/prepare-hermes2.sh https://amorev.ru/misc/hermes/prepare-hermes-2.sh && sudo bash /tmp/prepare-hermes2.sh</code>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="rounded-2xl border border-slate-200 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-950/40">
+            <div class="flex items-start gap-4">
+              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-accent-600 text-sm font-bold text-white shadow-lg shadow-accent-600/20">4</div>
+              <div class="min-w-0">
+                <h2 class="text-xl font-semibold text-slate-900 dark:text-white">Проверьте вход под hermes</h2>
+                <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                  Откройте новую сессию и убедитесь, что вход под новым пользователем работает. Порт берите из <code>env.txt</code> или из вывода второго скрипта.
+                </p>
+                <div data-copy-block class="group relative mt-4 rounded-2xl bg-slate-900 p-4 text-sm text-slate-100">
+                  <div class="pointer-events-none absolute right-4 top-4 opacity-0 transition duration-150 group-hover:pointer-events-auto group-hover:opacity-100">
+                    <button type="button" onclick="window.__copyCommand(this)" class="rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-accent-400 hover:text-white">
+                      Копировать
+                    </button>
+                  </div>
+                  <div class="overflow-x-auto">
+                    <code data-copy-text class="whitespace-pre-wrap break-all">ssh hermes@&lt;ВАШ_IP_СЕРВЕРА&gt; -p 2091</code>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="rounded-2xl border border-slate-200 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-950/40">
+            <div class="flex items-start gap-4">
+              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-accent-600 text-sm font-bold text-white shadow-lg shadow-accent-600/20">5</div>
+              <div class="min-w-0">
+                <h2 class="text-xl font-semibold text-slate-900 dark:text-white">Установите Hermes под пользователем hermes</h2>
+                <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                  Выполняйте установку уже без <code>sudo</code>, от имени пользователя <code>hermes</code>.
+                </p>
+                <div data-copy-block class="group relative mt-4 rounded-2xl bg-slate-900 p-4 text-sm text-slate-100">
+                  <div class="pointer-events-none absolute right-4 top-4 opacity-0 transition duration-150 group-hover:pointer-events-auto group-hover:opacity-100">
+                    <button type="button" onclick="window.__copyCommand(this)" class="rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-accent-400 hover:text-white">
+                      Копировать
+                    </button>
+                  </div>
+                  <div class="overflow-x-auto">
+                    <code data-copy-text class="whitespace-pre-wrap break-all">curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash</code>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <aside class="space-y-6">
+          <section class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Краткий чеклист</h2>
+            <ul class="mt-4 space-y-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
+              <li class="flex gap-3"><span class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-accent-500"></span><span>Запустить стартовый скрипт подготовки.</span></li>
+              <li class="flex gap-3"><span class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-accent-500"></span><span>Открыть и заполнить <strong>/root/setup-data/env.txt</strong>.</span></li>
+              <li class="flex gap-3"><span class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-accent-500"></span><span>Запустить скрипт создания пользователя и защиты.</span></li>
+              <li class="flex gap-3"><span class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-accent-500"></span><span>Проверить SSH-вход под <strong>hermes</strong>.</span></li>
+              <li class="flex gap-3"><span class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-accent-500"></span><span>Установить Hermes уже от пользователя <strong>hermes</strong>.</span></li>
+            </ul>
+          </section>
+
+          <section class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Важно</h2>
+            <div class="mt-4 space-y-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
+              <p>
+                Первый и второй шаги выполняются с <code>sudo</code>. Установка Hermes выполняется без <code>sudo</code> и не от root.
+              </p>
+              <p>
+                Перед запуском второго скрипта обязательно заполните <code>env.txt</code>, иначе не будут настроены Telegram-данные и параметры модели.
+              </p>
+            </div>
+          </section>
+
+          <section class="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-950/60">
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Что увидеть в конце</h2>
+            <div class="mt-4 rounded-2xl bg-slate-900 p-4 text-sm text-emerald-300">
+              <code class="whitespace-pre-wrap">hermes</code>
+            </div>
+            <p class="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
+              После установки команда <code>hermes</code> должна запускаться уже из-под пользователя <code>hermes</code> без ошибок.
+            </p>
+          </section>
+        </aside>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
