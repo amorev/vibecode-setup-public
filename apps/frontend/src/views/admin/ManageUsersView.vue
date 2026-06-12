@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
-import { getUsers, createUser, updateUser, deleteUser, type PublicUser, type CreateUserRequest, type UpdateUserRequest } from '@/api/users';
+import { getUsers, createUser, updateUser, deleteUser, type PublicUser, type CreateUserRequest, type UpdateUserRequest, type DeleteUserResponse } from '@/api/users';
 
 const users = ref<PublicUser[]>([]);
 const loading = ref(true);
@@ -10,7 +10,11 @@ const editingId = ref<number | null>(null);
 const form = ref<CreateUserRequest>({ login: '', password: '', role: 'user' });
 const formError = ref<string | null>(null);
 const saving = ref(false);
-const deletingId = ref<number | null>(null);
+
+// Delete modal state
+const deletingUser = ref<PublicUser | null>(null);
+const deleteError = ref<string | null>(null);
+const deleteResult = ref<DeleteUserResponse | null>(null);
 
 const isEditMode = computed(() => editingId.value !== null);
 
@@ -75,18 +79,35 @@ const submit = async () => {
   }
 };
 
-const handleDelete = async (id: number) => {
-  if (!confirm('Удалить этого пользователя?')) return;
-  deletingId.value = id;
+const openDeleteModal = (user: PublicUser) => {
+  deletingUser.value = user;
+  deleteError.value = null;
+  deleteResult.value = null;
+};
+
+const closeDeleteModal = () => {
+  if (deletingUser.value === null) return; // already closing
+  deletingUser.value = null;
+  deleteError.value = null;
+  deleteResult.value = null;
+};
+
+const confirmDelete = async () => {
+  if (!deletingUser.value) return;
+  const user = deletingUser.value;
+  deleteError.value = null;
   try {
-    await deleteUser(id);
+    const result = await deleteUser(user.id);
+    deleteResult.value = result;
     await loadUsers();
   } catch (e: any) {
-    error.value = 'Ошибка удаления пользователя';
+    deleteError.value = e.response?.data?.message || 'Ошибка удаления пользователя';
     console.error(e);
-  } finally {
-    deletingId.value = null;
   }
+};
+
+const dismissDeleteResult = () => {
+  closeDeleteModal();
 };
 
 const isOwn = (user: PublicUser) => {
@@ -192,12 +213,10 @@ onMounted(() => {
               </button>
               <button
                 v-if="!isOwn(user)"
-                @click="handleDelete(user.id)"
-                :disabled="deletingId === user.id"
+                @click="openDeleteModal(user)"
                 class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
               >
-                <span v-if="deletingId === user.id" class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-red-300 border-t-red-600"></span>
-                <span v-else>Удалить</span>
+                Удалить
               </button>
               <span v-if="isOwn(user)" class="text-xs text-slate-400 dark:text-slate-500">(вы)</span>
             </td>
@@ -208,5 +227,59 @@ onMounted(() => {
         <p class="text-sm text-slate-500 dark:text-slate-400">Пользователей пока нет. Создайте первого!</p>
       </div>
     </div>
+
+    <!-- Delete confirmation modal -->
+    <Teleport to="body">
+      <div
+        v-if="deletingUser"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm"
+        @click.self="deleteResult ? dismissDeleteResult() : closeDeleteModal()"
+      >
+        <div class="surface-card w-full max-w-md p-6" role="dialog" aria-modal="true">
+          <!-- Success state -->
+          <template v-if="deleteResult">
+            <div class="flex items-start gap-3">
+              <div class="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+              </div>
+              <div class="min-w-0 flex-1">
+                <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">Пользователь удалён</h3>
+                <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  Вместе с пользователем удалено напоминаний:
+                  <span class="font-semibold text-slate-900 dark:text-white">{{ deleteResult.deletedRemindersCount }}</span>
+                </p>
+              </div>
+            </div>
+            <div class="mt-6 flex justify-end">
+              <button @click="dismissDeleteResult" class="btn-primary">Готово</button>
+            </div>
+          </template>
+
+          <!-- Confirmation / error state -->
+          <template v-else>
+            <div class="flex items-start gap-3">
+              <div class="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 3h6a1 1 0 011 1v3H8V4a1 1 0 011-1z" /></svg>
+              </div>
+              <div class="min-w-0 flex-1">
+                <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">Удалить пользователя?</h3>
+                <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  Пользователь
+                  <span class="font-semibold text-slate-900 dark:text-white">«{{ deletingUser.login }}»</span>
+                  и все его напоминания будут безвозвратно удалены.
+                </p>
+              </div>
+            </div>
+            <div v-if="deleteError" class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200">{{ deleteError }}</div>
+            <div class="mt-6 flex justify-end gap-2">
+              <button @click="closeDeleteModal" class="btn-secondary">Отмена</button>
+              <button @click="confirmDelete" class="btn-danger">
+                Удалить
+              </button>
+            </div>
+          </template>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
