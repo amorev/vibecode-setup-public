@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply bg-slate-950 text-slate-900 antialiased scroll-smooth;
+  }
+
+  body {
+    @apply min-h-screen bg-slate-50 text-slate-900 transition-colors duration-200 dark:bg-slate-950 dark:text-slate-100;
+  }
+
+  ::selection {
+    @apply bg-brand-500/20 text-slate-900 dark:text-white;
+  }
+}
+
+@layer components {
+  .surface-card {
+    @apply rounded-2xl border border-slate-200/80 bg-white/90 shadow-sm backdrop-blur-sm transition-colors duration-200 dark:border-slate-800 dark:bg-slate-900/80;
+  }
+
+  .surface-muted {
+    @apply rounded-2xl border border-slate-200/70 bg-slate-50/80 transition-colors duration-200 dark:border-slate-800 dark:bg-slate-900/40;
+  }
+
+  .input-base {
+    @apply w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-brand-500;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800;
+  }
+}
+
+@layer utilities {
+  .calendar-grid-height {
+    min-height: calc(100vh - 15rem);
+  }
+}

@@ -269,6 +269,25 @@ subagent({
 chrome_devtools_navigate_page({ url: "http://localhost:5173" })
 ```
 
+## Server Work: Delegate to Subagent
+
+**NEVER call `mcp__ssh-connect__*` tools directly.** All server operations (deploy, install packages, edit `/etc/...`, restart systemd services, run shell scripts on the remote host, check state) MUST be delegated to the `server-operator` subagent via the `subagent` tool.
+
+The project uses a local MCP server `ssh-connect` (configured in `.pi/mcp.json`, wrapper `scripts/ssh.sh`, credentials in local `.env`). It is the **only** allowed SSH path for this project — do not use the global `ssh-mcp` from `~/.pi/agent/mcp.json` even if it is connected.
+
+```typescript
+// ✅ Correct — delegate to subagent
+subagent({
+  agent: "server-operator",
+  task: "Через ssh_connect_sudo-exec выполни: `apt-get update && apt-get install -y nginx && systemctl enable --now nginx`. Верни exit code, stdout, stderr."
+})
+
+// ❌ WRONG — never call ssh-connect tools directly
+mcp({ tool: "ssh_connect_sudo-exec", args: "{\"command\": \"apt install nginx\"}" })
+```
+
+If `ssh-connect` is not connected when you try to use it, ask the user (or call) `mcp({ connect: "ssh-connect" })` first, then delegate. Do not fall back to other SSH tools.
+
 ## Subagents
 
 Project-local subagents (stored in `.pi/agents/`). Call with `@<name> <message>`.
@@ -279,6 +298,7 @@ Project-local subagents (stored in `.pi/agents/`). Call with `@<name> <message>`
 | `docs-maintainer` | `@docs-maintainer обнови docs` | **After any code changes** — compares code with `docs/` and updates affected doc files. Use with a description of what changed, or without one to auto-detect drift. |
 | `test-runner` | `@test-runner запусти тесты` | **Run e2e tests and return a compact report** — all tests, a specific file, or filtered by pattern. Returns pass/fail summary with error details. Does NOT fix code — only reports. |
 | `test-fixer` | `@test-fixer почини тесты` | **Fix broken e2e tests** — runs the test, analyzes the error, fixes the root cause in code, re-runs, and returns the final report. Use after `test-runner` identifies failures. |
+| `server-operator` | `@server-operator выполни на сервере` | **All server / deploy operations** — runs shell commands on the remote host via the project-local `ssh-connect` MCP (`ssh_connect_exec`, `ssh_connect_sudo-exec`). Only does what is asked, never interprets results. Use this for deploys, server config, package installs, service restarts, log inspection, etc. |
 
 ### browser-checker workflow
 
@@ -327,6 +347,32 @@ Subagent: runs test → reads error output → fixes code → re-runs → return
 
 The fixer runs tests, analyzes failures, fixes the root cause (in test files or application code), re-runs, and confirms everything passes. If it needs more context about business logic, it reads `agents.md` and asks clarifying questions.
 
+### server-operator workflow
+
+The subagent only **executes** — it does not interpret results or decide next steps. You stay the decision-maker; it returns stdout/stderr/exit-code, you decide what to do with it.
+
+```text
+User: задеплой приложение на сервер
+Agent: subagent({ agent: "server-operator", task: "Скопируй /tmp/app.tar.gz в /opt/app, распакуй, выполни docker compose up -d в /opt/app. Верни результат каждой команды." })
+Subagent: runs 3 commands → returns exit codes + output verbatim
+Agent: <interprets output, decides next step or reports success>
+```
+
+Examples of typical tasks:
+
+```typescript
+// Read-only diagnostics
+subagent({ agent: "server-operator", task: "Через ssh_connect_exec выполни: `uptime && free -h && df -h / && docker ps --format '{{.Names}}\\t{{.Status}}'`. Верни вывод." })
+
+// System config (sudo)
+subagent({ agent: "server-operator", task: "Через ssh_connect_sudo-exec добавь в /etc/ssh/sshd_config строку 'PasswordAuthentication no' (если её нет), затем выполни `sshd -t` и `systemctl reload ssh`. Верни результат." })
+
+// Deploy script
+subagent({ agent: "server-operator", task: "Через ssh_connect_sudo-exec выполни: `bash /root/setup-data/prepare-server-2.sh`. Если скрипт упадёт — остановись и верни вывод с места ошибки. Не интерпретируй." })
+```
+
+Credentials live in the **local** `.env` (gitignored) and are read by `scripts/ssh.sh`. The wrapper exec's into `npx ssh-mcp`, which becomes the `ssh-connect` MCP server. Never put credentials in `.pi/mcp.json` or in code.
+
 ## Common Issues
 
 - **`EADDRINUSE` on port 3000**: Run `npm run kill:backend` (uses PID file) or find PID with `netstat -ano | grep :3000`
@@ -334,3 +380,4 @@ The fixer runs tests, analyzes failures, fixes the root cause (in test files or 
 - **CDP connection fails**: Chrome must be launched with `--remote-debugging-port=9222`
 - **Tests can't navigate**: Use full URLs (not relative) — `baseURL` from config doesn't apply to CDP-connected pages
 - **Check logs for errors**: `logs/backend.log` and `logs/frontend.log` — agent reads these; to start/stop a service, ask the user to run `npm run dev:*:log` / `npm run kill:*` (unless the user explicitly told you to do it)
+- **`ssh-connect` MCP fails to connect**: run `mcp({ connect: "ssh-connect" })` once per session. If it still fails with `Connection closed`, check that `.env` exists at the repo root with `SSH_HOST/PORT/USER/PASSWORD` and that `bash scripts/ssh.sh` starts manually. Never fall back to the global `ssh-mcp` from `~/.pi/agent/mcp.json` — this project uses only the local one.
