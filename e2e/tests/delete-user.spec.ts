@@ -118,6 +118,11 @@ test.describe('Delete user', () => {
   });
 
   test('should hide the delete button for the current user (own row)', async ({ connectedPage: page }) => {
+    // Get our own id from the JWT so the selector does not depend on hard-coded id=1
+    const token = await loginAsAdmin();
+    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+    const myId = payload.sub;
+
     await page.goto(`${BASE_URL}/#/login`);
     await page.getByPlaceholder('admin').fill('admin');
     await page.getByPlaceholder('••••••••').fill('admin123');
@@ -125,13 +130,13 @@ test.describe('Delete user', () => {
     await page.waitForURL(/\/#\/admin/, { timeout: 15_000 });
     await page.getByRole('heading', { name: 'Пользователи' }).waitFor({ state: 'visible', timeout: 10_000 });
 
-    // Find the row with login "admin" — that's us
-    const ownRow = page.getByRole('row', { name: /^#1\s+admin/ });
+    // Find the row with login "admin" that also marks us as the current user
+    const ownRow = page.getByRole('row', { name: new RegExp(`^#${myId}\\s+admin`) });
     await expect(ownRow).toBeVisible({ timeout: 5_000 });
+    await expect(ownRow).toContainText('вы');
 
     // Should not contain a "Удалить" button (instead shows "(вы)")
     await expect(ownRow.getByRole('button', { name: 'Удалить' })).toHaveCount(0);
-    await expect(ownRow).toContainText('вы');
   });
 
   test('backend: should return 400 when deleting self via API', async () => {

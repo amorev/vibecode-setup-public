@@ -3,8 +3,9 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserEntity } from '../users/entities/user.entity';
 import { SettingsEntity } from '../settings/entities/settings.entity';
 import { ReminderEntity } from '../reminders/entities/reminder.entity';
+import { EventEntity } from '../events/entities/event.entity';
 
-const ENTITIES = [UserEntity, SettingsEntity, ReminderEntity];
+const ENTITIES = [UserEntity, SettingsEntity, ReminderEntity, EventEntity];
 
 const dbType = process.env.DB_TYPE || 'sqlite';
 

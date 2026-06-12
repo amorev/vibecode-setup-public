@@ -54,7 +54,10 @@ onMounted(async () => {
           </div>
         </div>
 
-        <div class="mt-8">
+        <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <router-link to="/events" class="btn-secondary inline-block">
+            Посмотреть мероприятия
+          </router-link>
           <router-link to="/login" class="btn-primary inline-block">
             Войти в админ-панель
           </router-link>

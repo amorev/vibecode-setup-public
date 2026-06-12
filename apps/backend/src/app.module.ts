@@ -4,6 +4,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { SettingsModule } from './settings/settings.module';
 import { RemindersModule } from './reminders/reminders.module';
+import { EventsModule } from './events/events.module';
 import { UsersService } from './users/users.service';
 
 @Module({
@@ -13,6 +14,7 @@ import { UsersService } from './users/users.service';
     UsersModule,
     SettingsModule,
     RemindersModule,
+    EventsModule,
   ],
 })
 export class AppModule implements OnModuleInit {

@@ -7,18 +7,20 @@
 ```
 vibe-setup-ui/
 ├── apps/
-│   ├── backend/          # Nest.js API (/api/auth, /api/users, /api/reminders)
+│   ├── backend/          # Nest.js API (/api/auth, /api/users, /api/reminders, /api/events)
 │   │   ├── src/
 │   │   │   ├── main.ts                 # Entry, global prefix 'api', SPA serve
 │   │   │   ├── app.module.ts           # Root module, seeds DB on startup
 │   │   │   ├── database/               # SQLite/PostgreSQL TypeORM config
-│   │   │   ├── auth/                   # JWT auth (login, me, password)
+│   │   │   ├── auth/                   # JWT auth (login, me, password) + AdminGuard
 │   │   │   │   ├── entities/admin.entity.ts
 │   │   │   │   ├── auth.controller.ts
 │   │   │   │   ├── auth.service.ts
 │   │   │   │   ├── jwt.strategy.ts
-│   │   │   │   └── jwt-auth.guard.ts
-│   │   │   └── users/                  # User CRUD (admin only)
+│   │   │   │   ├── jwt-auth.guard.ts
+│   │   │   │   └── admin.guard.ts      # Role check, reads role from DB
+│   │   │   ├── users/                  # User CRUD (admin only)
+│   │   │   └── events/                 # Public events CRUD (filters + pagination; admin-only mutations)
 │   │   │       ├── entities/user.entity.ts
 │   │   │       ├── users.controller.ts
 │   │   │       ├── users.service.ts
@@ -37,11 +39,14 @@ vibe-setup-ui/
 │       │   ├── api/auth.ts              # Axios client for auth
 │       │   ├── api/users.ts             # Axios client for users
 │       │   ├── api/reminders.ts         # Axios client for reminders
+│       │   ├── api/events.ts            # Axios client for events
 │       │   ├── components/              # Shared components
-│       │   ├── views/PublicView.vue     # Public page (user count)
+│       │   ├── views/PublicView.vue     # Public page (user count) + link to events
 │       │   ├── views/LoginView.vue      # Login form
 │       │   ├── views/RemindersView.vue  # Reminders list + create/edit
+│       │   ├── views/EventsView.vue     # Public events list (filters + pagination)
 │       │   ├── views/admin/ManageUsersView.vue  # Users CRUD
+│       │   ├── views/admin/ManageEventsView.vue # Events CRUD (admin)
 │       │   ├── layouts/AdminLayout.vue  # Admin layout
 │       │   ├── router/index.ts          # Hash router
 │       │   ├── composables/useAuth.ts   # Auth state
@@ -155,7 +160,7 @@ When debugging a problem, read the logs instead:
 
 1. **Single container**: Frontend is built into `apps/frontend/dist/` and served by Nest.js static middleware. SPA fallback sends `index.html` for non-API routes.
 
-2. **API prefix**: `setGlobalPrefix('api')` + `@Controller('auth')` / `@Controller('users')` — all API routes at `/api/*`.
+2. **API prefix**: `setGlobalPrefix('api')` + `@Controller('auth')` / `@Controller('users')` / `@Controller('events')` — all API routes at `/api/*`.
 
 3. **Database abstraction**: Two connectors (SQLite/PostgreSQL) via `DB_TYPE` env. TypeORM `synchronize: true` for auto-migration. SQLite for local/dev, PostgreSQL for production.
 
@@ -165,12 +170,13 @@ When debugging a problem, read the logs instead:
 
 6. **JWT Auth**: Bearer token, 24h expiry. Guard `@UseGuards(JwtAuthGuard)` for protected routes.
 
-7. **Role-based access**: Roles `admin` and `user`. Only `admin` can CRUD users.
+7. **Role-based access**: Roles `admin` and `user`. Only `admin` can CRUD users and events (events are public-read). `AdminGuard` reads role from DB.
 
 8. **Hash router**: Vue uses `createWebHashHistory` to avoid server-side route config for SPA.
 
 9. **Seeding**: First admin created automatically on empty DB (from `ADMIN_LOGIN` / `ADMIN_PASSWORD` env vars).
 10. **Reminders per user**: Each reminder belongs to a user (FK userId). Users can only see/edit their own reminders. Recurring reminders always shown in "upcoming" regardless of `scheduledAt`.
+11. **Public Events CRUD**: Events are public-read (filters + pagination), admin-write (`JwtAuthGuard` + `AdminGuard`). AdminGuard reads role from DB.
 
 ## API Endpoints
 
@@ -211,6 +217,18 @@ When debugging a problem, read the logs instead:
 | POST | `/api/reminders` | Create reminder (JWT required) |
 | PATCH | `/api/reminders/:id` | Update reminder (JWT required) |
 | DELETE | `/api/reminders/:id` | Delete reminder (JWT required) |
+
+### Events
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/events` | Paginated public list of events (filters: `title`, `description`, `dateFrom`, `dateTo`, `page`, `limit`) |
+| GET | `/api/events/:id` | Single event (public) |
+| POST | `/api/events` | Create event (JWT + admin required) |
+| PATCH | `/api/events/:id` | Update event (JWT + admin required) |
+| DELETE | `/api/events/:id` | Delete event (JWT + admin required) |
+
+Admin-only mutations use `@UseGuards(JwtAuthGuard, AdminGuard)` — role is read from DB by `AdminGuard` (JWT payload doesn't carry role).
 
 ## Writing E2E Tests
 

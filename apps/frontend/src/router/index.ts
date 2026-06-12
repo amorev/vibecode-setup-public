@@ -29,6 +29,11 @@ const router = createRouter({
       beforeEnter: requireAuth,
     },
     {
+      path: '/events',
+      name: 'events',
+      component: () => import('@/views/EventsView.vue'),
+    },
+    {
       path: '/login',
       name: 'login',
       component: () => import('@/views/LoginView.vue'),
@@ -49,6 +54,11 @@ const router = createRouter({
           path: 'telegram-bot',
           name: 'admin-telegram-bot',
           component: () => import('@/views/admin/TelegramBotView.vue'),
+        },
+        {
+          path: 'events',
+          name: 'admin-events',
+          component: () => import('@/views/admin/ManageEventsView.vue'),
         },
       ],
     },

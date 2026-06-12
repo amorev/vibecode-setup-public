@@ -10,6 +10,7 @@ const { theme, setTheme, toggleTheme, isDark } = useTheme();
 
 const navItems = [
   { name: 'Пользователи', path: '/admin' },
+  { name: 'Мероприятия', path: '/admin/events' },
   { name: 'Telegram бот', path: '/admin/telegram-bot' },
 ];
 

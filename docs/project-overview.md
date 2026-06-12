@@ -2,7 +2,7 @@
 
 ## Описание
 
-Шаблон Nest.js + Vue 3 приложения с авторизацией, админ-панелью управления пользователями, настройками Telegram бота и системой напоминаний. Публичная часть показывает текущее количество пользователей. Админ-панель (под авторизацией) позволяет управлять пользователями: просматривать список, создавать новых, удалять (кроме самого себя). Также есть раздел настроек Telegram бота: сохранение токена бота, Chat ID для уведомлений, отправка тестового сообщения. Система напоминаний поддерживает одноразовые и регулярные напоминания с автоматической отправкой в Telegram через cron-сервис.
+Шаблон Nest.js + Vue 3 приложения с авторизацией, админ-панелью управления пользователями и мероприятиями, настройками Telegram бота, системой напоминаний и публичным каталогом мероприятий. Публичная часть показывает текущее количество пользователей и список мероприятий (с фильтрами и пагинацией). Админ-панель (под авторизацией) позволяет управлять пользователями и мероприятиями: просматривать списки, создавать/редактировать/удалять. Также есть раздел настроек Telegram бота: сохранение токена бота, Chat ID для уведомлений, отправка тестового сообщения. Система напоминаний поддерживает одноразовые и регулярные напоминания с автоматической отправкой в Telegram через cron-сервис.
 
 **Стек**: Nest.js + Express (backend), Vue 3 + Tailwind CSS (frontend), SQLite (dev) / PostgreSQL (prod), JWT auth, Playwright e2e tests (CDP), node-cron (отправка напоминаний в Telegram).
 
@@ -28,10 +28,11 @@
 project/
 ├── apps/
 │   ├── backend/          # Nest.js API (@Controller + TypeORM)
-│   │   ├── src/auth/     # JWT auth (login, me, password)
+│   │   ├── src/auth/     # JWT auth (login, me, password) + AdminGuard
 │   │   ├── src/users/    # User CRUD (admin only)
 │   │   ├── src/settings/ # Telegram bot settings (token, chatId, test send)
-│   │   └── src/reminders/ # Reminders CRUD + cron → Telegram
+│   │   ├── src/reminders/ # Reminders CRUD + cron → Telegram
+│   │   ├── src/events/   # Public events CRUD (filters + pagination; admin-only mutations)
 │   │   └── src/main.ts   # Entry, SPA fallback, CORS
 │   └── frontend/         # Vue 3 SPA (Vite + Tailwind)
 │       ├── src/api/      # Axios clients (auth, users, settings)
@@ -60,7 +61,7 @@ project/
 4. **Database abstraction**: `DB_TYPE=sqlite` или `postgres` через `.env`. TypeORM `synchronize: true`.
 5. **E2E через CDP**: Playwright подключается к реальному Chrome (`--remote-debugging-port=9222`), не к headless.
 6. **JWT auth**: Bearer token, 24h expiry. Guard `@UseGuards(JwtAuthGuard)` для защищённых маршрутов.
-7. **Role-based access**: Роли `admin` и `user`. Только `admin` может CRUD пользователей.
+7. **Role-based access**: Роли `admin` и `user`. Только `admin` может CRUD пользователей и мероприятий (мероприятия — public-read). Роль читается из БД через `AdminGuard` (JWT несёт только `sub`+`login`).
 8. **Seeding**: Первый админ создаётся автоматически при пустой БД (из `ADMIN_LOGIN` / `ADMIN_PASSWORD` из env).
 9. **Telegram bot settings**: Таблица `settings` — singleton, одна строка. Автосоздание при первом запросе. Сохранение токена бота, Chat ID. Тестовая отправка сообщения через Telegram Bot API (`fetch`, без доп. зависимостей).
 10. **Cron-сервис напоминаний**: `RemindersService` запускает cron каждую минуту (`node-cron`). Ищет просроченные одноразовые и регулярные напоминания и отправляет в Telegram через Bot API. Отправленные помечаются `isSent=true` / `lastSent=now`.

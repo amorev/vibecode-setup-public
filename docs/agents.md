@@ -8,12 +8,12 @@
 |------|---------|-------------------|
 | `project-overview.md` | Общая архитектура | Новому агенту для понимания стека |
 | `GETTING_STARTED.md` | Запуск с нуля | Dev, нативный деплой (systemd) |
-| `areas/backend-api-structure.md` | Backend API (auth, users) | CRUD пользователей, JWT auth |
+| `areas/backend-api-structure.md` | Backend API (auth, users, events) | CRUD пользователей, JWT auth, AdminGuard, Events CRUD |
 | `areas/auth-structure.md` | Аутентификация | JWT, login/logout, guard |
-| `areas/database-structure.md` | База данных | TypeORM сущности, миграции |
+| `areas/database-structure.md` | База данных | TypeORM сущности (User, Settings, Reminder, Event), миграции |
 | `areas/frontend-structure.md` | Frontend (Vue SPA) | Страницы, роутинг, API-клиент |
 | `areas/e2e-testing-structure.md` | E2E-тесты | Playwright, CDP, новые тесты |
-| `areas/admin-panel.md` | Админ-панель | AdminLayout, роуты, навигация |
+| `areas/admin-panel.md` | Админ-панель | AdminLayout, роуты (`/admin`, `/admin/events`, `/admin/telegram-bot`), навигация |
 | `testing-guide.md` | Руководство по тестированию | Запуск тестов, написание |
 | `deployment.md` | Нативный деплой (systemd), порты, env | Деплой |
 
@@ -61,6 +61,7 @@
 6. **JWT-secret**: замените `dev-secret-change-me` в production.
 7. **Порядок маршрутов**: статические пути (`users/count`, `users`) ДО параметризованных (`:id`).
 8. **После изменений в коде** — вызывайте `@docs-maintainer` для обновления документации.
+9. **Public admin routes**: для admin-only маршрутов используйте связку `@UseGuards(JwtAuthGuard, AdminGuard)`. `AdminGuard` читает роль из БД (JWT содержит только `sub`+`login`).
 
 ## Контекстные файлы
 

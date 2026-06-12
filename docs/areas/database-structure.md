@@ -2,7 +2,7 @@
 
 ## Описание
 
-TypeORM с двумя подключениями: SQLite (dev) / PostgreSQL (prod). `synchronize: true` для auto-migration. Три сущности: User (авторизация), Settings (Telegram бот) и Reminder (напоминания).
+TypeORM с двумя подключениями: SQLite (dev) / PostgreSQL (prod). `synchronize: true` для auto-migration. Четыре сущности: User (авторизация), Settings (Telegram бот), Reminder (напоминания) и Event (публичные мероприятия).
 
 ## Ключевые файлы
 
@@ -12,6 +12,7 @@ TypeORM с двумя подключениями: SQLite (dev) / PostgreSQL (pro
 | `apps/backend/src/database/reset-db.ts` | DB reset script (drop + recreate) |
 | `apps/backend/src/users/entities/user.entity.ts` | User entity |
 | `apps/backend/src/reminders/entities/reminder.entity.ts` | Reminder entity |
+| `apps/backend/src/events/entities/event.entity.ts` | Event entity |
 
 ## Сущности
 
@@ -50,6 +51,27 @@ TypeORM с двумя подключениями: SQLite (dev) / PostgreSQL (pro
 - Связь с `User` — `ManyToOne`, каскадное удаление (`onDelete: 'CASCADE'`)
 - Регулярные напоминания (`isRecurring=true`) игнорируют `scheduledAt` при фильтрации "прошедших"
 - `isSent` / `lastSent` используются cron-сервисом для отслеживания отправки в Telegram: одноразовые помечаются `isSent=true` после отправки; регулярные обновляют `lastSent` для дедупликации в рамках одного дня
+
+### Event
+
+Таблица `event` — публичные мероприятия (создаются админом, читаются всеми).
+
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | int (PK, auto) | — |
+| title | string | not null, max 255 |
+| description | text | not null |
+| link | string | not null (URL; `@IsUrl({ require_tld: false })` в DTO) |
+| eventDate | datetime | not null, indexed |
+| createdAt | datetime | — |
+| updatedAt | datetime | — |
+
+**Особенности:**
+- Нет FK на `user` — события глобальные, без привязки к автору
+- `description` хранится как `text` (для длинных описаний)
+- `eventDate` индексирован — основной ключ сортировки в `EventsService.findAll` (ASC)
+- Используется фильтрами `Like` (по `title`/`description`) и `Between` (по `eventDate`) в `EventsService.buildWhere()`
+- Подробности API и фильтров — в [backend-api-structure.md](./backend-api-structure.md)
 
 ## Seeding
 

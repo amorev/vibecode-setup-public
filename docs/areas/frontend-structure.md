@@ -2,7 +2,7 @@
 
 ## Описание
 
-Vue 3 SPA с Composition API, Tailwind CSS и hash router. Публичная страница (`PublicView`) показывает текущее количество пользователей. Админка (`UsersAdminView`) — CRUD пользователей. Авторизация через JWT в `localStorage`.
+Vue 3 SPA с Composition API, Tailwind CSS и hash router. Публичная страница (`PublicView`) показывает текущее количество пользователей и кнопку перехода к мероприятиям; отдельная публичная страница `EventsView` со списком мероприятий (фильтры + пагинация). Админка (`ManageUsersView`, `ManageEventsView`, `TelegramBotView`) — CRUD пользователей, мероприятий и настроек Telegram. Авторизация через JWT в `localStorage`.
 
 ## Ключевые файлы
 
@@ -15,9 +15,11 @@ Vue 3 SPA с Composition API, Tailwind CSS и hash router. Публичная с
 | `apps/frontend/src/api/users.ts` | Axios client for users endpoints |
 | `apps/frontend/src/api/settings.ts` | Axios client for settings endpoints |
 | `apps/frontend/src/api/reminders.ts` | Axios client for reminders endpoints |
+| `apps/frontend/src/api/events.ts` | Axios client for events endpoints |
 | `apps/frontend/src/views/PublicView.vue` | Public page (user count) |
 | `apps/frontend/src/views/LoginView.vue` | Login form |
 | `apps/frontend/src/views/admin/ManageUsersView.vue` | Users admin CRUD |
+| `apps/frontend/src/views/admin/ManageEventsView.vue` | Events admin CRUD |
 | `apps/frontend/src/views/admin/TelegramBotView.vue` | Telegram bot settings page |
 | `apps/frontend/src/views/RemindersView.vue` | Reminders list + create/edit modal |
 | `apps/frontend/src/layouts/AdminLayout.vue` | Admin layout with nav |
@@ -30,7 +32,9 @@ Vue 3 SPA с Composition API, Tailwind CSS и hash router. Публичная с
 |------|-----------|---------------|
 | `/` | `PublicView` | No |
 | `/login` | `LoginView` | No |
+| `/events` | `EventsView` | No |
 | `/admin` | `ManageUsersView` (via AdminLayout) | Yes |
+| `/admin/events` | `ManageEventsView` (via AdminLayout) | Yes |
 | `/admin/telegram-bot` | `TelegramBotView` (via AdminLayout) | Yes |
 | `/reminders` | `RemindersView` | Yes |
 
@@ -68,6 +72,44 @@ Vue 3 SPA с Composition API, Tailwind CSS и hash router. Публичная с
 - `Reminder`: `{ id, userId, text, scheduledAt, isRecurring, weekdays, isSent, lastSent, createdAt, updatedAt }`
 - `CreateReminderRequest`: `{ text, scheduledAt, isRecurring?, weekdays? }`
 - `UpdateReminderRequest`: `{ text?: string, scheduledAt?: string, isRecurring?: boolean, weekdays?: number[] }`
+
+### events.ts
+
+- `getEvents(params?)` → `PaginatedEvents` (поддерживает `title`, `description`, `dateFrom`, `dateTo`, `page`, `limit`)
+- `getEvent(id)` → `Event`
+- `createEvent(data)` → `Event`
+- `updateEvent(id, data)` → `Event`
+- `deleteEvent(id)` → `void`
+
+Интерфейсы:
+- `Event`: `{ id, title, description, link, eventDate, createdAt, updatedAt }`
+- `PaginatedEvents`: `{ items: Event[], total, page, limit, totalPages }`
+- `CreateEventRequest`: `{ title, description, link, eventDate }`
+- `UpdateEventRequest`: все поля опциональны
+- `EventsQueryParams extends EventFilters` + `page?`, `limit?`
+
+## EventsView (публичная)
+
+Страница `/events` — публичный список мероприятий (без авторизации).
+
+- **Фильтры**: `title`, `description` (текстовый поиск, LIKE), `dateFrom`, `dateTo` (`<input type="date">` → ISO-строка `YYYY-MM-DD` на бэкенде)
+- **Кнопки**: "Применить" (запрос с фильтрами, сброс на page=1), "Сбросить"
+- **Список**: карточки-ссылки (`<a target="_blank" rel="noopener noreferrer">` на `event.link`), внутри заголовок, описание (line-clamp-3), дата/время через `toLocaleDateString('ru-RU')` и `toLocaleTimeString('ru-RU')`
+- **Пустое состояние**: иконка + текст "Мероприятий не найдено"
+- **Пагинация**: 10 элементов на страницу, кнопки `‹`/`›`, видимые страницы через `computed` (первая / последняя / текущая ±1), многоточия `…` по краям
+- **Ссылка в `App.vue` (header)**: кнопка "Мероприятия" ведёт на `/events` (видна только авторизованным)
+- **Ссылка в `PublicView`**: кнопка "Посмотреть мероприятия" → `/events`
+
+## ManageEventsView (админ)
+
+Страница `/admin/events` (внутри `AdminLayout`, защищена `requireAuth`). CRUD-интерфейс над теми же `GET/POST/PATCH/DELETE /api/events`.
+
+- **Список**: те же фильтры и пагинация, что и в публичной `EventsView`
+- **Создание/редактирование**: модальное окно с полями `title`, `description`, `link`, `eventDate` (дата + время раздельными `<input type="date">` / `<input type="time">` → склейка в ISO)
+- **Кнопка "Редактировать"** на карточке открывает модалку с предзаполненной формой (`openEdit` через `nextTick` для корректной реактивности)
+- **Удаление**: отдельная модалка подтверждения (`deletingEvent`)
+- **Состояния**: `loading`, `saving`, `error`, `formError` (per-form)
+- **В `AdminLayout.navItems`**: пункт "Мероприятия" → `/admin/events` (между "Пользователи" и "Telegram бот")
 
 ## RemindersView
 
