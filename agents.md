@@ -230,19 +230,23 @@ test('example', async ({ connectedPage }) => {
 
 You do not need to run e2e test after every change. Only when user asks you
 
-## Browser Work: Delegate to Subagent
+## Browser Work: Delegate to Subagent (default)
 
-**NEVER call `chrome_devtools_*` tools directly.** All browser work (navigation, screenshots, DOM inspection, console logs, network requests, performance tracing) MUST be delegated to the `browser-checker` subagent via the `subagent` tool.
+**Default rule — delegate to `browser-checker`.** All browser work (navigation, screenshots, DOM inspection, console logs, network requests, performance tracing) should be delegated to the `browser-checker` subagent via the `subagent` tool. This keeps the tool set, reporting format and console/network checks consistent across the project.
+
+**Exception — explicit user override.** If the user **explicitly** asks you to do browser work yourself ("ты сам проверь", "без субагентов", "напрямую", "лично посмотри", "сделай сам" и т. п.), you may call `chrome_devtools_*` tools directly. This exception applies **only** when the request is unambiguous; when in doubt, delegate. When working directly, remember you only see the browser state visible to your own tools — call `list_pages` first if you need to know what is open.
 
 ```typescript
-// ✅ Correct — delegate to subagent
+// ✅ Default — delegate to subagent
 subagent({
   agent: "browser-checker",
   task: "Navigate to http://localhost:5173 and take a screenshot"
 })
 
-// ❌ WRONG — never call chrome_devtools_* directly
-chrome_devtools_navigate_page({ url: "http://localhost:5173" })
+// ✅ Override — only when user explicitly asked you to do it yourself
+//   (e.g. "посмотри сам в браузере", "без субагентов")
+chrome_devtools_list_pages({})
+chrome_devtools_take_screenshot({})
 ```
 
 ## Server Work: Delegate to Subagent
@@ -270,7 +274,7 @@ Project-local subagents (stored in `.pi/agents/`). Call with `@<name> <message>`
 
 | Subagent | Invoke | When to use |
 |----------|--------|-------------|
-| `browser-checker` | `@browser-checker проверь страницу` | **All browser work** — navigation, screenshots, console logs, DOM inspection, network analysis. Never call chrome_devtools_* tools yourself; delegate to this subagent. |
+| `browser-checker` | `@browser-checker проверь страницу` | **All browser work (by default)** — navigation, screenshots, console logs, DOM inspection, network analysis. Delegate to this subagent. Direct `chrome_devtools_*` calls are allowed only when the user explicitly asks you to do browser work yourself. |
 | `docs-maintainer` | `@docs-maintainer обнови docs` | **After any code changes** — compares code with `docs/` and updates affected doc files. Use with a description of what changed, or without one to auto-detect drift. |
 | `test-runner` | `@test-runner запусти тесты` | **Run e2e tests and return a compact report** — all tests, a specific file, or filtered by pattern. Returns pass/fail summary with error details. Does NOT fix code — only reports. |
 | `test-fixer` | `@test-fixer почини тесты` | **Fix broken e2e tests** — runs the test, analyzes the error, fixes the root cause in code, re-runs, and returns the final report. Use after `test-runner` identifies failures. |
