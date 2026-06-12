@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "ssh-connect": {
+      "command": "bash",
+      "args": [
+        "scripts/ssh.sh"
+      ]
+    }
+  }
+}

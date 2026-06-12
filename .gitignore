@@ -40,3 +40,5 @@ apps/backend/notifications-test/
 coverage/
 test-results/*
 data/ed255519key
+
+.env
