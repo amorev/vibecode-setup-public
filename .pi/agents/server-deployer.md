@@ -117,6 +117,17 @@ tar --exclude='./node_modules' --exclude='./.git' --exclude='./dist' \
 
 ВСЕГДА `npm ci` (не `npm install`!) — он точно следует `package-lock.json`, не правит его, и быстрее на CI-стиле. На проде это критично для воспроизводимости.
 
+### `rm -rf dist/` перед билдом — ОБЯЗАТЕЛЬНО на update
+
+Vite при наличии старого `dist/` может переиспользовать кэш роулера. Новые чанки (lazy-imported views, новые компоненты) **молча не попадут в сборку** — `npm run build` вернёт exit 0, `systemctl status` покажет `active (running)`, healthcheck 200, но визуально приложение не изменится. Тихая проблема.
+
+**Перед каждым `npm run build` (deploy и update):**
+```bash
+sudo -u <USER> bash -lc 'cd ~/app && rm -rf apps/frontend/dist apps/backend/dist && npm run build'
+```
+
+**Признак успешного обновления:** в логе билда должны быть **новые хеши** ассетов. Если добавлялся новый view/component — ищите его в `dist/assets/` (например, `NewView-XXXX.js`).
+
 ### `systemctl start` + проверка
 
 После `start` всегда `sleep 2` (Node + Nest.js стартует ~1-2 сек) и `systemctl status` — `Active: active (running)`. Если `failed` — НЕ retry, верни вывод главному агенту.

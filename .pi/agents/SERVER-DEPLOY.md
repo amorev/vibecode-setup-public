@@ -309,14 +309,24 @@ subagent({
   agent: "server-operator",
   task: "Через ssh_connect_sudo-exec обнови приложение до последней версии:\n\n" +
     "systemctl stop vibecode-setup.service && \\\n" +
-    "sudo -u vibecoder bash -lc 'cd ~/app && source $HOME/.nvm/nvm.sh && nvm use 22 >/dev/null 2>&1 && npm ci --no-audit --no-fund 2>&1 | tail -3 && npm run build 2>&1 | tail -3' && \\\n" +
+    "sudo -u vibecoder bash -lc 'cd ~/app && source $HOME/.nvm/nvm.sh && nvm use 22 >/dev/null 2>&1 && \\\n" +
+    "  rm -rf apps/frontend/dist apps/backend/dist && \\\n" +
+    "  npm ci --no-audit --no-fund 2>&1 | tail -3 && \\\n" +
+    "  npm run build 2>&1 | tail -3' && \\\n" +
     "systemctl start vibecode-setup.service && \\\n" +
     "sleep 2 && \\\n" +
     "systemctl status vibecode-setup.service --no-pager -l | head -10 && \\\n" +
-    "echo '--- healthcheck ---' && curl -s -m 5 http://127.0.0.1:3000/api/users/count\n\n" +
+    "echo '--- healthcheck ---' && curl -s -m 5 http://127.0.0.1:3000/api/users/count && \\\n" +
+    "echo '--- новые ассеты ---' && curl -s -m 5 http://127.0.0.1:3000/ | grep -oE 'assets/index-[^\"]+\\.js' | head -1 && \\\n" +
+    "ssh -o BatchMode=yes vibecoder@127.0.0.1 'ls /home/vibecoder/app/apps/frontend/dist/assets/ 2>/dev/null' 2>/dev/null || \\\n" +
+    "  ls /home/vibecoder/app/apps/frontend/dist/assets/ 2>/dev/null | head -15\n\n" +
     "Верни результат."
 })
 ```
+
+**КРИТИЧНО:** в update-команде обязательно `rm -rf apps/frontend/dist apps/backend/dist` перед `npm run build`. Без этого Vite может переиспользовать старый `dist/` и новые чанки (например, новые View-файлы) **не попадут в сборку** — приложение продолжит отдавать старую версию, хотя `systemctl status` показывает `active (running)`. Это тихая проблема: ошибок нет, healthcheck 200, но визуально ничего не изменилось.
+
+**Проверка успешного обновления:** после билда в выводе `npm run build` должны быть **новые ассеты** (`*.js` с новыми хешами). Если добавлялся новый view/component — ищите его в списке (например, `NewView-XXXX.js`).
 
 Перед запуском скрипта **локально** (на машине агента) перезалить файлы через `tar | ssh` (шаг 3).
 
