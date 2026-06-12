@@ -99,6 +99,45 @@ DB_DATABASE=app_db
 | DELETE | `/api/users/:id` | Удалить пользователя (admin) |
 | GET | `/api/users/count` | Количество пользователей (public) |
 
+## Настройка сервера с нуля
+
+Сервер настраивается двумя скриптами, которые запускаются **по очереди** на чистом Ubuntu/Debian VPS. Скачиваются напрямую из GitHub через `wget` и запускаются через `bash` — ничего не нужно клонировать.
+
+### Шаг 1 — Подготовка (swap + пароль нового пользователя)
+
+Запускается под **любым пользователем с sudo** (в том числе под `root`). Скрипт создаст swap 2G, попросит дважды ввести пароль для будущего пользователя `vibecoder` и сохранит данные в `/root/setup-data/`.
+
+```bash
+wget -O /tmp/prepare-server-1.sh https://raw.githubusercontent.com/amorev/vibecode-setup-public/refs/heads/main/deploy/prepare/prepare-server-1.sh && bash /tmp/prepare-server-1.sh
+```
+
+В процессе будет дважды запрошен пароль (ввод скрыт) — **запомните его**, он понадобится для входа на сервер.
+
+### Шаг 2 — Настройка пользователя, SSH, UFW, fail2ban
+
+Запускается **только под root**. Скрипт установит пакеты (`sudo`, `ufw`, `fail2ban`, `openssh-server`), создаст пользователя `vibecoder`, сменит SSH-порт на `2091`, откроет его в firewall и включит fail2ban.
+
+```bash
+sudo bash -c 'wget -O /tmp/prepare-server-2.sh https://raw.githubusercontent.com/amorev/vibecode-setup-public/refs/heads/main/deploy/prepare/prepare-server-2.sh && bash /tmp/prepare-server-2.sh'
+```
+
+> ⚠️ **Не закрывайте текущую SSH-сессию сразу после шага 2!** Сначала откройте **новый терминал** и проверьте вход:
+>
+> ```bash
+> ssh -p 2091 vibecoder@<IP_СЕРВЕРА>
+> ```
+>
+> Проверьте sudo: `sudo -v`. Только после успешного входа под новым пользователем закрывайте root-сессию.
+
+### Что делают скрипты
+
+| Скрипт | Что делает |
+|--------|-----------|
+| `prepare-server-1.sh` | Создаёт swap 2G (swappiness 80), сохраняет хэш пароля в `/root/setup-data/password.hash`, пишет `/root/setup-data/env.txt` (`NEW_USERNAME=vibecoder`, `SSH_PORT=2091`) |
+| `prepare-server-2.sh` | Ставит пакеты (`sudo`, `ufw`, `fail2ban`, `openssh-server`, `libpam-modules`, `logrotate`); создаёт пользователя `vibecoder` с sudo без пароля; меняет порт SSH на 2091, отключает root-вход; настраивает UFW (default deny, открыт только 2091) и fail2ban (5 попыток / 10 мин / бан 1 час) |
+
+После успешной настройки сервер готов к деплою приложения — см. [agents/SERVER-DEPLOY.md](agents/SERVER-DEPLOY.md) или [docs/deployment.md](docs/deployment.md).
+
 ## Документация
 
 - [GETTING_STARTED.md](docs/GETTING_STARTED.md) — запуск с нуля (Docker, nginx-proxy)
